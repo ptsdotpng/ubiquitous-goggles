@@ -8,27 +8,37 @@ const html = (strings, ...exprs) => {
   }, "");
 };
 //#endregion
-//#region data
-const DATA =[[1,1,"init"],[2,true,"kb prep"],[3,true,"print todos"],[4,true,"select todo"],[5,true,"complete todo"],[6,true,"output data"],[7,true,"new todo"]]
-//#endregion
-// todo: refactor
-const prmpt = document.getElementById("prompt")
 
-const main = (el, todos) => {
+//#region components
+const render_todo = (cursor) => (t, i) => {
+  const cl = i === cursor ? `class="active"` : "";
+  const checked = `[${t[1] ?  "x" : " "}]`
+
+  return html`
+    <li ${cl}>${t[0]}:${checked}:${t[2]}</li>
+  `;
+};
+
+//#endregion
+
+// consts 
+const cmd_chars = "abcdefghijklmnopqrstuvwxyz -_+1234567890"
+
+
+const main = (el, todos, prmpt) => {
+  //#region state
   const s = {
     cursor: 0,
     mode: 1, 
     cmd_buff: ""
   }
+  //#endregion
 
+  //#region render
   const render = () => {
-    const rendered_todos = todos.map((t, i) => {
-      const cl = i === s.cursor ? `class="active"` : "";
+    const rt = render_todo(s.cursor)
+    const rendered_todos = todos.map(rt);
 
-      return html`
-        <li ${cl}>${t[0]}:[${t[1] ?  "x" : " "}]:${t[2]}</li>
-      `;
-    });
     el.innerHTML = html`
       <div class="todos">
         <h1>todos</h1>
@@ -38,13 +48,25 @@ const main = (el, todos) => {
       </div>
     `;
   }
+  //#endregion
+
+  //#region commands
+  const set_mode_normal = () => {
+    prmpt.innerHTML = ""
+    s.mode = 1
+    s.cmd_buff = ""
+  }
+
+  const set_mode_cmd = () => {
+    prmpt.innerHTML = ""
+    s.mode = 0
+    s.cmd_buff = ":"
+  }
 
   const normal_key = k => {
     prmpt.innerHTML = k
     if(k === ":") {
-      prmpt.innerHTML = ""
-      s.mode = 0
-      s.cmd_buff = ":"
+      set_mode_cmd();
     } else if (k === "j") {
       s.cursor += 1
     } else if (k === "k") {
@@ -54,39 +76,44 @@ const main = (el, todos) => {
     }
   }
 
-  const cmd_key = k => {
-    if(k === "Shift") return
-
-    if(k === "Escape") {
+  const try_command = () => {
+    if(s.cmd_buff === ":export") {
+      navigator.clipboard.writeText(
+        JSON.stringify(todos)
+      )
+    } else if (s.cmd_buff.slice(0,4) === ":add") {
+      const next_id = Math.max(...todos.map(([i]) => i)) + 1
+      todos.push(
+        [next_id,0,s.cmd_buff.slice(5)]
+      )
       prmpt.innerHTML = ""
       s.mode = 1
-      s.cmd_buff = ""
+      s.cmd_buff = ":"
+    }
+  }
+  
+  const cmd_key = k => {
+    // ignore
+    if(k === "Shift") return
+
+    // normal ok chars
+    if(cmd_chars.indexOf(k.toLowerCase()) !== -1) {
+      s.cmd_buff += k
+      prmpt.innerHTML = s.cmd_buff
+      return;
+    }
+
+    // mode chage/control
+    if(k === "Escape") {
+      set_mode_normal()
     } else if (k === "Backspace") {
-      console.log(124,  s.cmd_buff , s.cmd_buff.slice(0, -1))
       s.cmd_buff = s.cmd_buff.slice(0, -1)
       prmpt.innerHTML = s.cmd_buff
     } else if (k === "Enter") {
-
-      if(s.cmd_buff === ":export") {
-        navigator.clipboard.writeText(
-          JSON.stringify(todos)
-        )
-      } else if (s.cmd_buff.slice(0,4) === ":add") {
-        const next_id = Math.max(...todos.map(([i]) => i)) + 1
-        todos.push(
-          [next_id,0,s.cmd_buff.slice(5)]
-        )
-        prmpt.innerHTML = ""
-        s.mode = 1
-        s.cmd_buff = ":"
-      }
-
-    } else {
-      s.cmd_buff += k
-      prmpt.innerHTML = s.cmd_buff
+      try_command()
     }
   }
-
+  
   const on_input = e => {
     s.mode 
       ? normal_key(e.key)
@@ -94,7 +121,8 @@ const main = (el, todos) => {
 
     render()
   }
-
+  // #endregion
+  // #region init
   const init = () => {
     console.log("todo V0.0.1")
     render()
@@ -102,11 +130,7 @@ const main = (el, todos) => {
 
   init();
   return on_input;
+  // #endregion
 };
 
-const inst = main(
-  document.getElementById("out"),
-  DATA
-)
-//to use later -> j3 will route events
-document.addEventListener("keyup", inst)
+export { main }
