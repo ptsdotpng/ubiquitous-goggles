@@ -1,2 +1,3 @@
 # todo
 - a doto system for our projetcs.
+- gonna need a state machine for that text control thing...
